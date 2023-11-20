@@ -1,3 +1,9 @@
 .vscode
+wandb
+
+abr/__pycache__
 
 lightning_logs
+saves
+
+data/prepared_data.npz

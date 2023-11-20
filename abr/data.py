@@ -4,12 +4,16 @@ import numpy as np
 import json
 import math
 
+import torch
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 from sklearn.preprocessing import QuantileTransformer
 
 from .config import Config
 from .ids import *
+
+
+MAX_TEMPORAL_DATA = 100
 
 SUSCEPTIBILITY_SCORE_MATRIX = {
     #      T1,   T2,    T3
@@ -29,7 +33,6 @@ class ABRDataset(Dataset):
         self.mode = mode
 
         super().__init__()
-
 
     def __len__(self):
         # Return the size of your dataset
@@ -51,7 +54,17 @@ class ABRDataset(Dataset):
         temp = self._prep_temporal(player_data)
         spat = self._prep_spatial(spatial_data, county_dist)
         
-        return main, temp, spat, gt
+        gt = torch.from_numpy(gt).to(torch.float32)
+        main = torch.from_numpy(main).to(torch.float32)
+        temp = torch.from_numpy(temp).to(torch.float32)
+        spat = torch.from_numpy(spat).to(torch.float32)
+        
+        return {
+            'gt': gt,
+            'main': main,
+            'temp': temp,
+            'spat': spat,
+        }
     
     def _prep_gt(self, res_score, disease_data):
         gt = np.concatenate([[res_score], disease_data])
@@ -63,13 +76,46 @@ class ABRDataset(Dataset):
         return main
     
     def _prep_temporal(self, player_data):
-        pass
-    
+        temporal_feature_size = self.data["main"].shape[1] + len(COLUMN_DRUGS) + 2
+        temporal_data = np.zeros(shape = (self.config.MAX_TEMPORAL_DATA, temporal_feature_size), dtype = np.float32)
+        
+        n_empty_rows = self.config.MAX_TEMPORAL_DATA - (len(player_data['curr_visits_row_nums']) + len(player_data['past_visits_row_nums']))
+        n_empty_rows = max(0, n_empty_rows)
+        
+        past_row_rows = np.array([np.concatenate(([past_dist], self.data["main"][past_idx], [self.data["res_score"][past_idx]], self.data["disease_data"][past_idx])) for (past_idx, past_dist) in player_data["past_visits_row_nums"]], dtype=np.float32)
+        curr_row_rows = np.array([np.concatenate(([0.0], self.data["main"][curr_idx], [-2.0], np.zeros(shape = (len(COLUMN_DRUGS))) - 1)) for curr_idx in player_data["curr_visits_row_nums"]], dtype=np.float32)
+
+        if past_row_rows.shape[0] + curr_row_rows.shape[0] > 100:
+            # First, ensure curr_row_rows does not exceed the limit
+            curr_row_rows = curr_row_rows[-min(100, curr_row_rows.shape[0]):]  # Get the last 'N' rows, where 'N' <= 100
+
+            # Then, fill the remaining space with past_row_rows, prioritizing the end of the array
+            rows_remaining = 100 - curr_row_rows.shape[0]
+            
+            if rows_remaining == 0:
+                past_row_rows = np.array([])
+            else:
+                past_row_rows = past_row_rows[-rows_remaining:]  # Get the last 'rows_remaining' rows
+            
+        # Fill with -1.0 for the empty rows
+        temporal_data[:n_empty_rows, :] = -1.0
+
+        # Fill with past data
+        if len(past_row_rows) > 0:
+            temporal_data[n_empty_rows:n_empty_rows + len(past_row_rows)] = past_row_rows
+
+        # Fill with current data
+        if len(curr_row_rows) > 0:
+            temporal_data[n_empty_rows + len(past_row_rows):n_empty_rows + len(past_row_rows) + len(curr_row_rows)] = curr_row_rows
+            
+        return temporal_data
+        
     def _prep_spatial(self, spatial_data, county_dist):
-        pass
+        county_dist = np.concatenate([county_dist, [0.0]], axis=0)
+        county_dist = np.reshape(county_dist, (-1, 1))
+        spatial_data = np.concatenate([county_dist, spatial_data], axis = 1)
         
-        
-        
+        return spatial_data
         
 
 class ABRDataModule(LightningDataModule):
@@ -125,8 +171,7 @@ class ABRDataModule(LightningDataModule):
         
         self.train_indicies = ttv_splits['train']
         self.test_indicies = ttv_splits['test']
-        self.val_indicies = ttv_splits['val']
-        
+        self.val_indicies = ttv_splits['val']    
 
     def _create_ttv_split_file(self):
         # Create a new train/val/test split
@@ -176,10 +221,10 @@ class ABRDataModule(LightningDataModule):
         
         #self._print_unique_columns(amr_df, 'source')
         
-        #main_data = self._get_main_data(amr_df)
-        #res_score_data = self._get_res_score_data(amr_df)
-        #spat_data = self._get_spat_data(amr_df)
-        #county_dist_data = self._get_county_dist_data()
+        main_data = self._get_main_data(amr_df)
+        res_score_data = self._get_res_score_data(amr_df)
+        spat_data = self._get_spat_data(amr_df)
+        county_dist_data = self._get_county_dist_data()
         player_org_data = self._get_player_org_data(amr_df)
         disease_data = self._get_disease_data(amr_df)
         
@@ -431,7 +476,7 @@ class ABRDataModule(LightningDataModule):
                 past_months = np.array(past_tests_df["order_month"].to_list())
                 normalized_time = ((curr_year - past_years) * 12 + (curr_month - past_months)) / (12 * 4)
                 past_visits = list(zip(past_visits, normalized_time))
-                past_visits = sorted(past_visits, key=lambda x: x[1])
+                past_visits = sorted(past_visits, key=lambda x: x[1], reverse=True)
             
             player_data = {
                 "player_id": player_id,
@@ -554,11 +599,10 @@ class ABRDataModule(LightningDataModule):
             self.custom_test = ABRDataset(mode='test', config=self.config, data=self.data, indicies=self.test_indicies)
 
     def train_dataloader(self):
-        return DataLoader(self.custom_train)
+        return DataLoader(self.custom_train, batch_size = self.config.BATCH_SIZE, shuffle = True, drop_last=True)
 
     def val_dataloader(self):
-        return DataLoader(self.custom_val)
+        return DataLoader(self.custom_val, batch_size = self.config.BATCH_SIZE, drop_last=True)
 
     def test_dataloader(self):
-        return DataLoader(self.custom_test)
-
+        return DataLoader(self.custom_test, batch_size = self.config.BATCH_SIZE, drop_last=True)

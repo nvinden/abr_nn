@@ -869,17 +869,17 @@ ORG_STANDARD_CATEGORIES = {
 }
 
 # Create something that prints out all data that is not in the above dict to finish it off.
-ommited_temp = []
-for dis_of_interest in SOURCE_VALUES.keys():
-    found = False
-    for val in SOURCE_CATEGORIES.values():
-        if dis_of_interest in val:
-            found = True
-            break
-
-    if not found:
-        ommited_temp.append(dis_of_interest)
-
-print(ommited_temp)
-
-print()
+#ommited_temp = []
+#for dis_of_interest in SOURCE_VALUES.keys():
+#    found = False
+#    for val in SOURCE_CATEGORIES.values():
+#        if dis_of_interest in val:
+#            found = True
+#            break
+#
+#    if not found:
+#        ommited_temp.append(dis_of_interest)
+#
+#print(ommited_temp)
+#
+#print()
