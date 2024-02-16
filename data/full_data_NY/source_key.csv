@@ -1,0 +1,212 @@
+﻿source,source_cat1,source_cat2,source_cat3,source_cat4
+BIOPSY,Biopsy,Unspecified,Unspecified,Unspecified
+EAR_INNER,Ear,Inner,Inner,Internal
+BULLA,Ear,Middle,Bulla,Internal
+TECA,Ear,Middle,Bulla,Internal
+OTITIS,Ear,Middle,Otitis,Internal
+EAR _MIDDLE,Ear,Middle,Unspecified,Internal
+EAR_CANAL,Ear,Outer,Canal,External
+AU,Ear,Unspecified,Unspecified,Unspecified
+EAR,Ear,Unspecified,Unspecified,Unspecified
+EAR_BOTH,Ear,Unspecified,Unspecified,Unspecified
+AS,Ear,Unspecified,Unspecified,Unspecified
+EAR_LEFT,Ear,Unspecified,Unspecified,Unspecified
+AD,Ear,Unspecified,Unspecified,Unspecified
+EAR_RIGHT,Ear,Unspecified,Unspecified,Unspecified
+RIGHT_EAR,Ear,Unspecified,Unspecified,Unspecified
+CONJUNCTIVA,Eye,External Eye,Conjunctiva,External
+CORNEA,Eye,External Eye,Cornea,External
+PERIORBITAL,Eye,External Eye,Eyelid,External
+RETROBULBAR,Eye,Internal Eye,Retrobulbar,Internal
+EYE,Eye,Unspecified,Unspecified,Unspecified
+EYE_BOTH,Eye,Unspecified,Unspecified,Unspecified
+EYE_LEFT,Eye,Unspecified,Unspecified,Unspecified
+OS,Eye,Unspecified,Unspecified,Unspecified
+EYE_RIGHT,Eye,Unspecified,Unspecified,Unspecified
+OD,Eye,Unspecified,Unspecified,Unspecified
+ANAL_GLAND,Gastrointestinal,Anus,,External
+ANAL_SAC,Gastrointestinal,Anus,,External
+PERIANAL,Gastrointestinal,Anus,,External
+FECAL,Gastrointestinal,Feces,,External
+STOOL,Gastrointestinal,Feces,,External
+FLUID_GASTRIC,Gastrointestinal,Gastric,,Internal
+GASTRIC,Gastrointestinal,Gastric,,Internal
+STOMACH,Gastrointestinal,Gastric,,Internal
+STOMACH_CONTENTS,Gastrointestinal,Gastric,,Internal
+CECUM,Gastrointestinal,Intesine,Large,Internal
+COLON,Gastrointestinal,Intesine,Large,Internal
+RECTAL,Gastrointestinal,Intesine,Large,Internal
+DUODENUM,Gastrointestinal,Intestine,Small,Internal
+ILEUM,Gastrointestinal,Intestine,Small,Internal
+JEJUNUM,Gastrointestinal,Intestine,Small,Internal
+INTESTINE,Gastrointestinal,Intestine,Unspecified,Internal
+MASS,Growth,Mass,,Internal
+TUMOR,Growth,Tumor,,Internal
+ABDOMINAL_FLUID,Invasive,Abdominal,Fluid,Internal
+ASCITES,Invasive,Abdominal,Fluid,Internal
+GALLBLADDER,Invasive,Abdominal,Gallbladder,Internal
+BILE,Invasive,Abdominal,Liver,Internal
+FLUID_BILE,Invasive,Abdominal,Liver,Internal
+LIVER,Invasive,Abdominal,Liver,Internal
+OMENTUM,Invasive,Abdominal,Omentum,Internal
+PANCREAS,Invasive,Abdominal,Pancreas,Internal
+FLUID_PERITONEAL,Invasive,Abdominal,Peritoneum,Internal
+PERITONEAL,Invasive,Abdominal,Peritoneum,Internal
+ABDOMINAL,Invasive,Abdominal,Unspecified,Internal
+BLOOD,Invasive,Circulatory,Blood,Unspecified
+FLUID_PERICARDIAL,Invasive,Circulatory,Heart,Internal
+PERICARDIAL,Invasive,Circulatory,Heart,Internal
+LYMPHNODE,Invasive,Lymphatic,Lymph Node,Internal
+TONSILS,Invasive,Lymphatic,Lymph Node,Internal
+SPLEEN,Invasive,Lymphatic,Spleen,Internal
+CSF,Invasive,Spinal,Fluid,Internal
+FLUID_SPINAL,Invasive,Spinal,Fluid,Internal
+CHEST,Invasive,Thoracic,Chest,Internal
+FLUID_CHEST,Invasive,Thoracic,Chest,Internal
+FLUID_PLEURAL,Invasive,Thoracic,Pleural,Internal
+PLEURAL,Invasive,Thoracic,Pleural,Internal
+THORACENTESIS,Invasive,Thoracic,Pleural,Internal
+PYOTHORAX,Invasive,Thoracic,Pyothorax,Internal
+FLUID_PYROTHORAX,Invasive,Thoracic,Pyrothorax,Internal
+FLUID_THORACIC,Invasive,Thoracic,Thoracic,Internal
+THORACIC,Invasive,Thoracic,Thoracic,Internal
+THORAX,Invasive,Thoracic,Thoracic,Internal
+BONE,Musculoskeletal,Bone,,Unspecified
+CARPUS_CARPAL,Musculoskeletal,Bone,,Internal
+FRACTURE,Musculoskeletal,Bone,,Unspecified
+LIGAMENT,Musculoskeletal,Joint,Ligament,Internal
+TPLO,Musculoskeletal,Joint,Ligament,Internal
+ELBOW,Musculoskeletal,Joint,Synovial Fluid,Internal
+FLUID_JOINT,Musculoskeletal,Joint,Synovial Fluid,Internal
+FLUID_SYNOVIAL,Musculoskeletal,Joint,Synovial Fluid,Internal
+HOCK,Musculoskeletal,Joint,Synovial Fluid,Internal
+JOINT,Musculoskeletal,Joint,Synovial Fluid,Internal
+KNEE,Musculoskeletal,Joint,Synovial Fluid,Internal
+STIFLE,Musculoskeletal,Joint,Synovial Fluid,Internal
+GINGIVA,Muzzle,Dental,,External
+TOOTH,Muzzle,Dental,,External
+TOOTH_ROOT_ABSCESS,Muzzle,Dental,,External
+JAW,Muzzle,Other,,Unspecified
+MOUTH,Muzzle,Oral,,External
+ORAL,Muzzle,Oral,,External
+ORALCAVITY,Muzzle,Oral,,External
+SALIVARYGLAND,Muzzle,Oral,,External
+SUBMANDIBULAR_ABSCESS,Muzzle,Other,,Internal
+TONGUE,Muzzle,Oral,,External
+CHOANA,Muzzle,Nasal,,External
+NASAL,Muzzle,Nasal,,External
+NASAL_DISCHARGE,Muzzle,Nasal,,External
+NOSTRIL,Muzzle,Nasal,,External
+AEROBIC_SWAB,Other,Aerobic,,Unspecified
+ANAEROBIC_SWAB,Other,Anaerobic,,Unspecified
+ASPIRATE,Other,Aspirate,,External
+ENVIRONMENTAL_SWAB,Other,Environment,,External
+TABLE_TOP,Other,Environment,,External
+EXUDATE,Other,Exudate,,Internal
+FISTULA,Other,Fistula,,Internal
+MASTITIS,Other,Milk,,
+MILK,Other,Milk,,External
+ABORTUS,Other,Post Mortem,,Unspecified
+NECROPSY,Other,Post Mortem,,Unspecified
+RINS,Other,RINS,,
+UMBILICAL,Other,Umbilical,,Unspecified
+WATER,Other,Water,,External
+OTHER,Other,,,Unspecified
+HARDWARE,Procedural,Implant,,Unspecified
+IMPLANT,Procedural,Implant,,Unspecified
+INCISION_SITE,Procedural,Incision,,External
+SEROMA,Procedural,Incision,,External
+SURGERY SITE,Procedural,Incision,,External
+SURGICAL INCISION,Procedural,Incision,,External
+BEAK,REMOVE,,,
+BLOWHOLE,REMOVE,,,
+CHOANA_CLOACA,REMOVE,,,
+CLOACA,REMOVE,,,
+CROP,REMOVE,,,
+FEATHERS,REMOVE,,,
+TEATS,REMOVE,,,
+UDDER,REMOVE,,,
+YOLK SAC,REMOVE,,,
+CERVIX,Reproductive,Female,Cervix,Internal
+PLACENTA,Reproductive,Female,Placenta,Unspecified
+PYOMETRA,Reproductive,Female,Pyometra,Internal
+UTERUS,Reproductive,Female,Uterus,Internal
+VAGINA,Reproductive,Female,Vagina,Internal
+VAGINAL_DISCHARGE,Reproductive,Female,Vagina,Internal
+VULVA,Reproductive,Female,Vagina,External
+PENILE _SHEATH,Reproductive,Male,Penis,External
+PENIS,Reproductive,Male,Penis,External
+SHEATH,Reproductive,Male,Penis,External
+PREPUCE,Reproductive,Male,Prepuce,External
+FLUID_PROSTATIC,Reproductive,Male,Prostate,Internal
+PROSTATE,Reproductive,Male,Prostate,Internal
+SEMEN,Reproductive,Male,Semen,Internal
+TESTES,Reproductive,Male,Testes,Internal
+GENITAL,Reproductive,Unspecified,Genital,Internal
+PREBREED,Reproductive,Unspecified,Prebreed,
+TRACHEA,Respiratory,Lower Respiratory,Airway,Internal
+TRACHEAL_BRUSH,Respiratory,Lower Respiratory,Airway,Internal
+TRANSTRACHEAL_WASH,Respiratory,Lower Respiratory,Airway,Internal
+ALVEOLI,Respiratory,Lower Respiratory,Alveoli,Internal
+BAL,Respiratory,Lower Respiratory,Alveoli,Internal
+BRONCHIAL,Respiratory,Lower Respiratory,Bronchial,Internal
+BRONCHIAL_BRUSH,Respiratory,Lower Respiratory,Bronchial,Internal
+BRONCHUS,Respiratory,Lower Respiratory,Bronchial,Internal
+FLUID_BRONCHIAL,Respiratory,Lower Respiratory,Bronchial,Internal
+SPUTUM,Respiratory,Lower Respiratory,Bronchial,Internal
+FLUID_TRACHEAL,Respiratory,Lower Respiratory,Tracheal,Internal
+LUNG,Respiratory,Lower Respiratory,Unspecified,Internal
+RESPIRATORY,Respiratory,Unspecified,,Unspecified
+AIRWAY,Respiratory,Upper Respiratory,Airway,Internal
+LARYNX,Respiratory,Upper Respiratory,Airway,Internal
+OROPHARYNGEAL,Respiratory,Upper Respiratory,Pharyngeal,Internal
+PHARYNGEAL,Respiratory,Upper Respiratory,Pharyngeal,Internal
+THROAT,Respiratory,Upper Respiratory,Pharyngeal,Internal
+PHARYNX,Respiratory,Upper Respiratory,Pharyngeal,Internal
+SINUS,Respiratory,Upper Respiratory,Sinus,Internal
+SECRETION,SSTI,Integumentary,Fluid,External
+HAIR,SSTI,Integumentary,Hair,External
+NAILBED,SSTI,Integumentary,Nails,External
+NAILS,SSTI,Integumentary,Nails,External
+TOENAIL,SSTI,Integumentary,Nails,External
+DERMATITIS,SSTI,Integumentary,Skin,External
+SCRAPING,SSTI,Integumentary,Skin,External
+SKIN,SSTI,Integumentary,Skin,External
+TISSUE_SKIN,SSTI,Integumentary,Skin,External
+TISSUE,SSTI,Integumentary,Tissue,External
+ABSCESS,SSTI,Lesion,Abscess,Internal
+CYST,SSTI,Lesion,Cyst,Unspecified
+DRAINING_TRACT,SSTI,Lesion,Draining Tract,Internal
+GRANULOMA,SSTI,Lesion,Granuloma,Internal
+PUS,SSTI,Lesion,Pus,Unspecified
+PUSTULE,SSTI,Lesion,Pustule,Unspecified
+ULCER,SSTI,Lesion,Ulcer,Internal
+FOOT,SSTI,Unspecified,Foot,External
+HEAD,SSTI,Unspecified,Head,External
+LEG,SSTI,Unspecified,Leg,External
+NECK,SSTI,Unspecified,Neck,External
+TAIL,SSTI,Unspecified,Tail,External
+BITE,SSTI,Wound,Bite,External
+BURN,SSTI,Wound,Burn,External
+WOUND,SSTI,Wound,Wound,External
+SOURCE_NOT_INDICATED,Unknown,Unknown,Unknown,Unspecified
+UNKNOWN,Unknown,Unknown,Unknown,Unspecified
+<NA>,Unknown,Unkown,Unkown,Unspecified
+BLADDER_WALL,Urinary,System,Bladder,Internal
+TISSUE_BLADDER WALL,Urinary,System,Bladder,Internal
+KIDNEY,Urinary,System,Kidney,Internal
+BLADDER_STONES,Urinary,System,Stones,Unspecified
+STONES,Urinary,System,Stones,Unspecified
+UROLITH,Urinary,System,Stones,Unspecified
+URETER,Urinary,System,Tract,Internal
+URETHRA,Urinary,System,Tract,Internal
+CATHERIZED,Urinary,Urine,Extracted,Internal
+CATHETER,Urinary,Urine,Extracted,Internal
+CYSTOCENTESIS,Urinary,Urine,Extracted,Internal
+URINE_CATHETER,Urinary,Urine,Extracted,Internal
+URINE_CYSTO,Urinary,Urine,Extracted,Internal
+URINE,Urinary,Urine,Unspecified,External
+FREECATCH,Urinary,Urine,Voided,External
+URINE_FREECATCH,Urinary,Urine,Voided,External
+URINE_OTHER,Urinary,Urine,Voided,External
+VOIDED,Urinary,Urine,Voided,External

@@ -12,9 +12,6 @@ from sklearn.preprocessing import QuantileTransformer
 from .config import Config
 from .ids import *
 
-
-MAX_TEMPORAL_DATA = 100
-
 SUSCEPTIBILITY_SCORE_MATRIX = {
     #      T1,   T2,    T3
     "S": {1: -4, 2: -2, 3: -1},
@@ -77,20 +74,20 @@ class ABRDataset(Dataset):
     
     def _prep_temporal(self, player_data):
         temporal_feature_size = self.data["main"].shape[1] + len(COLUMN_DRUGS) + 2
-        temporal_data = np.zeros(shape = (self.config.MAX_TEMPORAL_DATA, temporal_feature_size), dtype = np.float32)
+        temporal_data = np.zeros(shape = (self.config.LSTM_MAX_TEMPORAL_DATA, temporal_feature_size), dtype = np.float32)
         
-        n_empty_rows = self.config.MAX_TEMPORAL_DATA - (len(player_data['curr_visits_row_nums']) + len(player_data['past_visits_row_nums']))
+        n_empty_rows = self.config.LSTM_MAX_TEMPORAL_DATA - (len(player_data['curr_visits_row_nums']) + len(player_data['past_visits_row_nums']))
         n_empty_rows = max(0, n_empty_rows)
         
         past_row_rows = np.array([np.concatenate(([past_dist], self.data["main"][past_idx], [self.data["res_score"][past_idx]], self.data["disease_data"][past_idx])) for (past_idx, past_dist) in player_data["past_visits_row_nums"]], dtype=np.float32)
         curr_row_rows = np.array([np.concatenate(([0.0], self.data["main"][curr_idx], [-2.0], np.zeros(shape = (len(COLUMN_DRUGS))) - 1)) for curr_idx in player_data["curr_visits_row_nums"]], dtype=np.float32)
 
-        if past_row_rows.shape[0] + curr_row_rows.shape[0] > 100:
+        if past_row_rows.shape[0] + curr_row_rows.shape[0] > self.config.LSTM_MAX_TEMPORAL_DATA:
             # First, ensure curr_row_rows does not exceed the limit
-            curr_row_rows = curr_row_rows[-min(100, curr_row_rows.shape[0]):]  # Get the last 'N' rows, where 'N' <= 100
+            curr_row_rows = curr_row_rows[-min(self.config.LSTM_MAX_TEMPORAL_DATA, curr_row_rows.shape[0]):]  # Get the last 'N' rows, where 'N' <= 100
 
             # Then, fill the remaining space with past_row_rows, prioritizing the end of the array
-            rows_remaining = 100 - curr_row_rows.shape[0]
+            rows_remaining = self.config.LSTM_MAX_TEMPORAL_DATA - curr_row_rows.shape[0]
             
             if rows_remaining == 0:
                 past_row_rows = np.array([])
@@ -120,11 +117,6 @@ class ABRDataset(Dataset):
 
 class ABRDataModule(LightningDataModule):
     # Data paths
-    AMR_DATA_PATH = "data/AMR_Data.csv"
-    DRUG_TIERS_PATH = "data/Drug_Tiers.csv"
-    COUNTY_LOCATIONS_PATH = "data/county_locations_normalized.json"
-    TTV_SPLIT_PATH = "data/ttv_split.json"
-    PREPARE_DATA_SAVE = "data/prepared_data.npz"
 
     # Data preparation organization:
     # For each patient ID, there is a dictionary of data
@@ -151,10 +143,18 @@ class ABRDataModule(LightningDataModule):
     # If running from a data save load that.
     # If not running from a data save, do all of the data preparation
     # for the entire dataset and then split it into train/val/test.
-    def __init__(self, config : Config):
+    def __init__(self, config : Config, data_path : str = None):
         super().__init__()
         
         self.config = config
+        self.data_path = data_path
+
+        # Data paths
+        self.AMR_DATA_PATH = os.path.join(self.data_path, "AMR_Data.csv")
+        self.DRUG_TIERS_PATH = os.path.join(self.data_path, "Drug_Tiers.csv")
+        self.COUNTY_LOCATIONS_PATH = os.path.join(self.data_path, "county_locations_normalized.json")
+        self.TTV_SPLIT_PATH = os.path.join(self.data_path, "ttv_split.json")
+        self.PREPARE_DATA_SAVE = os.path.join(self.data_path, "prepared_data.npz")
         
         self.prepare_data()
 
@@ -260,13 +260,16 @@ class ABRDataModule(LightningDataModule):
         data_list = []
         
         for i, row in enumerate(data):
+            panel_name_id = get_source_value(row['source'])
+            org_name_id = get_org_value(row['org_standard'])
+
             county_id = COUNTY2ID[row['county']]
             order_year = row['order_year']
             order_month = row['order_month']
             normalized_year_month = ((order_year - 2019) * 12 + order_month) / (4 * 12)
             species = SPECIES2ID[row['species']]
             age = np.array(row['age_year']).astype(np.float32)
-            panel_name_id = PANELNAME2ID[row['panel_name']]
+            panel_name_id = get_source_value[row['panel_name']]
             assay_name_id = ASSAYNAME2ID[row['assay_name']]
             source_id = SOURCE2ID[row['source']]
             

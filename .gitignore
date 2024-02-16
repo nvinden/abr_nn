@@ -6,4 +6,6 @@ abr/__pycache__
 lightning_logs
 saves
 
-data/prepared_data.npz
+data/fabricated_data/*
+data/full_data/*
+data/full_data_NY/AMR_Data_stack.csv

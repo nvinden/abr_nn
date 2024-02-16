@@ -1,0 +1,56 @@
+﻿drug,class
+NOVOBIOCIN,Others
+AMIKACIN,Aminoglycosides
+GENTAMICIN,Aminoglycosides
+KANAMYCIN,Aminoglycosides
+NEOMYCIN,Aminoglycosides
+TOBRAMYCIN,Aminoglycosides
+CHLORAMPHENICOL,Phenicols
+FLORFENICOL,Phenicols
+AMOXICILLINCLAVULANIC ACID,Beta lactam
+PIPERACILLINTAZOBACTAM,Beta lactam
+IMIPENEM,Carbapenems
+MEROPENEM,Carbapenems
+TICARCILLINCLAVULANIC ACID,Beta lactam
+CEFAZOLIN,Cephalosporin (I)
+CEPHALEXIN,Cephalosporin (I)
+CEFOXITIN,Cephamycin
+CEFIXIME,Cephalosporin (III)
+CEFOTAXIME,Cephalosporin (III)
+CEFOVECIN,Cephalosporin (III)
+CEFPODOXIME,Cephalosporin (III)
+CEFTAZIDIME,Cephalosporin (III)
+CEFTIOFUR,Cephalosporin (III)
+CEFIPIME,Cephalosporin (IV)
+BACITRACIN,Polypeptides
+ANIDULAFUNGIN,Echinocandins
+VANCOMYCIN,Glycopeptides
+CLINDAMYCIN,Lincosamides
+AZITHROMYCIN,Macrolides
+CLARITHROMYCIN,Macrolides
+ERYTHROMYCIN,Macrolides
+TULATHROMYCIN,Macrolides
+NITROFURANTOIN,Others
+LINEZOLID,Oxazolidinones
+AMOXICILLIN,Penicillins 
+AMPICILLIN,Penicillins 
+OXACILLINMETHICILLIN,Penicillins 
+PENICILLIN,Penicillins 
+PIPERACILLIN,Penicillins 
+FOSFOMYCIN,Phosphonics
+POLYMYXIN B,Lipopeptides
+MUPIROCIN,Pseudomonic Acids
+CIPROFLOXACIN,Quinolones
+ENROFLOXACIN,Quinolones
+MARBOFLOXACIN,Quinolones
+MOXIFLOXACIN,Quinolones
+OFLOXACIN,Quinolones
+ORBIFLOXACIN,Quinolones
+PRADOFLOXACIN,Quinolones
+RIFAMPICIN|RIFAMPIN,Ansamycin
+SULFISOXAZOLE,Folate Pathway Antagonist
+DOXYCYCLINE,Tetracyclines
+MINOCYCLINE,Tetracyclines
+TETRACYCLINE,Tetracyclines
+SULFAMETHOXAZOLE,Folate Pathway Antagonist
+TRIMETHOPRIMSULPHATE|TRIMETHOPRIMSULFAMETHOXAZOLE,Folate Pathway Antagonist
