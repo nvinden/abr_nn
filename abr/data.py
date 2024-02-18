@@ -39,17 +39,17 @@ class ABRDataset(Dataset):
         # Logic to get a single item at index `idx`
         row_number = self.indicies[idx]
         
-        player_data = self.data['player_data'][row_number]
-        main_row = self.data['main'][row_number]
-        spatial_data = self.data['spat'][player_data['spatial_data_key']]
-        disease_data = self.data['disease_data'][row_number]
-        res_score = self.data['res_score'][row_number]
-        county_dist = self.data['county_dist'][player_data['county_id']]
+        main_data = self.data["main"][row_number]
+        ground_truth_data = self.data["gt_score"][row_number]
+        temp_data = self.data['temporal'][row_number]
+        spatial_data = self.data['spat'][temp_data['spatial_data_key']]
         
-        gt = self._prep_gt(res_score, disease_data)
-        main = self._prep_main(main_row, disease_data)
-        temp = self._prep_temporal(player_data)
-        spat = self._prep_spatial(spatial_data, county_dist)
+        # Todo: fix this
+        gt = ground_truth_data
+        main = main_data
+        temp = self._prep_temporal(temp_data)
+        spat = spatial_data
+        
         
         gt = torch.from_numpy(gt).to(torch.float32)
         main = torch.from_numpy(main).to(torch.float32)
@@ -63,49 +63,56 @@ class ABRDataset(Dataset):
             'spat': spat,
         }
     
-    def _prep_gt(self, res_score, disease_data):
-        gt = np.concatenate([[res_score], disease_data])
-        return gt
-
-    def _prep_main(self, main_row, disease_data):
-        abr_tested = np.array(disease_data > -1, dtype=np.float32)
-        main = np.concatenate([main_row, abr_tested])
-        return main
+    def _prep_temporal(self, temporal_data):
+        temp_list = []
+        
+        past_visits = temporal_data["past_visits_row_nums"]
+        curr_visits = temporal_data["curr_visits_row_nums"]
+        
+        if len(past_visits) > 0:
+            # Get the normalized time differences
+            time_diffs = np.array([x[1] for x in past_visits])
+            time_diffs = time_diffs.reshape(-1, 1)
+            
+            # Get the main data for these visit
+            indexes = np.array([x[0] for x in past_visits])
+            main_data = self.data["main"][indexes]
+            
+            # Get the gt scores for these visits
+            gt_scores = self.data["gt_score"][indexes]
+            
+            # Put these values together
+            temp_list.append(np.concatenate([main_data, gt_scores, time_diffs], axis=1))
+            
+        
+        if len(curr_visits) > 0:
+            # Get the normalized time differences (always 0.0)
+            time_diffs = np.zeros(len(curr_visits), dtype = "float").reshape(-1, 1)
+            
+            # Get the main data for these visit
+            indexes = np.array(curr_visits)
+            main_data = self.data["main"][indexes]
+            
+            # Since the results are unknown for current month visits, put array of -1 for the gt scores
+            gt_scores = np.zeros((len(curr_visits), len(COLUMN_DRUGS)), dtype = "float") - 1.0
+            
+            # Put these values together
+            temp_list.append(np.concatenate([main_data, gt_scores, time_diffs], axis=1))
+            
+        # If there is no past data put a zeros vector of the
+        # correct length
+        if len(temp_list) == 0:
+            # TODO: put appropriate number
+            return np.zeros((100, 981), dtype = "float")
     
-    def _prep_temporal(self, player_data):
-        temporal_feature_size = self.data["main"].shape[1] + len(COLUMN_DRUGS) + 2
-        temporal_data = np.zeros(shape = (self.config.LSTM_MAX_TEMPORAL_DATA, temporal_feature_size), dtype = np.float32)
+        temp_out = np.concatenate(temp_list, axis = 0)
         
-        n_empty_rows = self.config.LSTM_MAX_TEMPORAL_DATA - (len(player_data['curr_visits_row_nums']) + len(player_data['past_visits_row_nums']))
-        n_empty_rows = max(0, n_empty_rows)
-        
-        past_row_rows = np.array([np.concatenate(([past_dist], self.data["main"][past_idx], [self.data["res_score"][past_idx]], self.data["disease_data"][past_idx])) for (past_idx, past_dist) in player_data["past_visits_row_nums"]], dtype=np.float32)
-        curr_row_rows = np.array([np.concatenate(([0.0], self.data["main"][curr_idx], [-2.0], np.zeros(shape = (len(COLUMN_DRUGS))) - 1)) for curr_idx in player_data["curr_visits_row_nums"]], dtype=np.float32)
-
-        if past_row_rows.shape[0] + curr_row_rows.shape[0] > self.config.LSTM_MAX_TEMPORAL_DATA:
-            # First, ensure curr_row_rows does not exceed the limit
-            curr_row_rows = curr_row_rows[-min(self.config.LSTM_MAX_TEMPORAL_DATA, curr_row_rows.shape[0]):]  # Get the last 'N' rows, where 'N' <= 100
-
-            # Then, fill the remaining space with past_row_rows, prioritizing the end of the array
-            rows_remaining = self.config.LSTM_MAX_TEMPORAL_DATA - curr_row_rows.shape[0]
+        # Fill the rest of the array with negative 1
+        if temp_out.shape[0] < 100:
+            minus_1 = np.zeros((100 - temp_out.shape[0], temp_out.shape[1]), dtype = "float") - 1
+            temp_out = np.concatenate([minus_1, temp_out], axis = 0)
             
-            if rows_remaining == 0:
-                past_row_rows = np.array([])
-            else:
-                past_row_rows = past_row_rows[-rows_remaining:]  # Get the last 'rows_remaining' rows
-            
-        # Fill with -1.0 for the empty rows
-        temporal_data[:n_empty_rows, :] = -1.0
-
-        # Fill with past data
-        if len(past_row_rows) > 0:
-            temporal_data[n_empty_rows:n_empty_rows + len(past_row_rows)] = past_row_rows
-
-        # Fill with current data
-        if len(curr_row_rows) > 0:
-            temporal_data[n_empty_rows + len(past_row_rows):n_empty_rows + len(past_row_rows) + len(curr_row_rows)] = curr_row_rows
-            
-        return temporal_data
+        return temp_out
         
     def _prep_spatial(self, spatial_data, county_dist):
         county_dist = np.concatenate([county_dist, [0.0]], axis=0)
@@ -193,9 +200,9 @@ class ABRDataModule(LightningDataModule):
         test_indexes = indexes[train_size:train_size + test_size]
         val_indexes = indexes[train_size + test_size:]
         
-        train_rows = df[df["id"].isin(train_indexes)]["Unnamed: 0"].to_list()
-        test_rows = df[df["id"].isin(test_indexes)]["Unnamed: 0"].to_list()
-        val_rows = df[df["id"].isin(val_indexes)]["Unnamed: 0"].to_list()
+        train_rows = df[df["id"].isin(train_indexes)]["data_number"].to_list()
+        test_rows = df[df["id"].isin(test_indexes)]["data_number"].to_list()
+        val_rows = df[df["id"].isin(val_indexes)]["data_number"].to_list()
         
         return {
             'train': train_rows,
@@ -221,20 +228,23 @@ class ABRDataModule(LightningDataModule):
         
         #self._print_unique_columns(amr_df, 'source')
         
+        print("Preparing main data...")
         main_data = self._get_main_data(amr_df)
-        res_score_data = self._get_res_score_data(amr_df)
+        
+        print("Preparing ground truth data...")
+        gt_score_data = self._get_ground_truth_data(amr_df)
+        
+        print("Preparing spatial data...")
         spat_data = self._get_spat_data(amr_df)
-        county_dist_data = self._get_county_dist_data()
-        player_org_data = self._get_player_org_data(amr_df)
-        disease_data = self._get_disease_data(amr_df)
+        
+        print("Preparing temporal data...")
+        temporal = self._get_temporal_data(amr_df)
         
         data = {
             'main': main_data,
-            'res_score': res_score_data,
-            'county_dist': county_dist_data,
+            'gt_score': gt_score_data,
             'spat': spat_data,
-            'player_data': player_org_data,
-            'disease_data': disease_data,
+            'temporal': temporal,
         }
 
         return data
@@ -260,31 +270,31 @@ class ABRDataModule(LightningDataModule):
         data_list = []
         
         for i, row in enumerate(data):
-            panel_name_id = get_source_value(row['source'])
-            org_name_id = get_org_value(row['org_standard'])
-
+            state_id = 0 # TODO: add a state column
             county_id = COUNTY2ID[row['county']]
             order_year = row['order_year']
             order_month = row['order_month']
-            normalized_year_month = ((order_year - 2019) * 12 + order_month) / (4 * 12)
+            # TODO: add more localization features
+            normalized_year_month = ((order_year - 2019) * 12 + order_month) / (5 * 12)
             species = SPECIES2ID[row['species']]
             age = np.array(row['age_year']).astype(np.float32)
-            panel_name_id = get_source_value[row['panel_name']]
-            assay_name_id = ASSAYNAME2ID[row['assay_name']]
-            source_id = SOURCE2ID[row['source']]
+            assay_name_id = get_assay_value(row['assay_name'])
+            source_id = get_source_value(row['source'])
+            org_id = get_org_value(row['org_standard'])
             
+            state_id = np.eye(50)[state_id]
             county_id = np.eye(len(COUNTY2ID))[county_id]
-            order_year = np.eye(4)[order_year - 2019]
+            order_year = np.eye(5)[order_year - 2019]
             order_month = np.eye(12)[order_month - 1]
             normalized_year_month = np.array([normalized_year_month], dtype = np.float32)
             species = np.array([species], dtype = np.float32)
             age = np.array([-1 if np.isnan(age) else age / 18], dtype = np.float32)
-            panel_name_id = np.eye(N_PANELNAMES)[panel_name_id]
-            assay_name_id = np.eye(N_ASSAYNAMES)[assay_name_id]
-            source_id = np.eye(N_SOURCES)[source_id]
+            assay_name_id = np.eye(get_assay_length())[assay_name_id]
+            source_id = np.eye(get_source_length())[source_id]
+            org_id = np.eye(get_org_length())[org_id]
             
             row_data = np.concatenate( [county_id, order_year, order_month, normalized_year_month,
-                                        species, age, panel_name_id, assay_name_id, source_id], 
+                                        species, age, assay_name_id, source_id, org_id], 
                                         dtype = np.float32)
             data_list.append(row_data)
             
@@ -292,7 +302,12 @@ class ABRDataModule(LightningDataModule):
         
         return data_list
 
-    def _get_res_score_data(self, amr_df : pd.DataFrame):
+    # Returns a numpy array of (n_rows, n_drugs) with the resistency scores
+    # 0.0 -> S
+    # 0.5 -> I
+    # 1.0 -> R
+    # -1.0 -> NOT TESTED
+    def _get_ground_truth_data(self, amr_df : pd.DataFrame):
         data = amr_df.to_dict("records")
         
         data_list = []
@@ -300,120 +315,77 @@ class ABRDataModule(LightningDataModule):
         #abr_drug_base_score = self._get_abr_drug_base_score(amr_df)
         
         for i, row in enumerate(data):
-            result_dict = dict()
+            data_row = np.zeros(len(COLUMN_DRUGS)) - 1.0
+            for i, drug in enumerate(COLUMN_DRUGS):
+                result = row[drug]
+                if result in ["S", "R", "I"]:
+                    if result == "S":
+                        data_row[i] = 0.0
+                    elif result == "R":
+                        data_row[i] = 1.0
+                    else:
+                        data_row[i] = 0.5
+                else:
+                    data_row[i] = -1.0            
+            data_list.append(data_row)
             
-            for ab in COLUMN_DRUGS:
-                result = row[ab]
-                
-                # result is nan
-                if result not in ["S", "R", "I"]:
-                    continue
-                
-                tier = DRUG_TIERS[ab] if ab in DRUG_TIERS else 1
-                
-                result_dict[ab] = (result, tier)
-                
-            resistency_raw_score = self.calculate_resistency_score(result_dict)
-            data_list.append(resistency_raw_score)
-            
-        resistency_mean = np.mean(data_list)
-        resistency_std = np.std(data_list)
+        data_list = np.stack(data_list)
         
-        resistency_score = (np.array(data_list) - resistency_mean) / resistency_std
-        
-        #print(f"Resistency mean: {resistency_mean}")
-        #print(f"Resistency std: {resistency_std}")
-        #print(f"Resistency max: {resistency_score.max()}")
-        #print(f"Resistency min: {resistency_score.min()}")
-        
-        # Quantile Transformation
-        data = np.array([resistency_score]).reshape(-1, 1)  # Replace with your list of values
-        transformer = QuantileTransformer(output_distribution='normal', random_state=0)
-        transformed_data = transformer.fit_transform(data)
-        transformed_resistency = transformed_data.flatten()
-        
-        # Plot the resistency score histogram
-        #import matplotlib.pyplot as plt
-        #plt.hist(transformed_resistency, bins=100)
-        #plt.show()
-        
-        return transformed_resistency
+        return data_list
 
+    # Returns dictionary with keys:
+    # dict[year_month] = (n_counties + 1, n_features)
     def _get_spat_data(self, amr_df : pd.DataFrame):
-        data = amr_df.to_dict("records")
+        # Add a special spatial id that keeps track of the index of each value in the
+        # amr df
+        amr_df = amr_df.copy()
+        amr_df['spat_id'] = list(range(len(amr_df)))
         
-        resistency_scores = self._get_res_score_data(amr_df)
+        gt_scores = self._get_ground_truth_data(amr_df)
         
         months_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-        years_list = [2019, 2020, 2021, 2022]
+        years_list = [2019, 2020, 2021, 2022, 2023]
         
         month_year = [(month, year) for month in months_list for year in years_list]
         
-        res_results = dict()
-        disease_count_results = dict()
-        
-        all_resistencies = []
-        state_resistencies = []
-        
-        disease_count_monthly_average = dict()
-        for county in COUNTY2ID.keys():
-            county_df = len(amr_df[amr_df["county"] == county]) / len(month_year)
-            disease_count_monthly_average[county] = county_df
-        
         final_results = dict()
         
+        ID2COUNTY = {v: k for k, v in COUNTY2ID.items()}
+        
+        # TODO: Add this for more than just NY data
         for (month, year) in month_year:
-            month_year_key = f"{month}_{year}"
-            res_results[month_year_key] = {}
-            disease_count_results[month_year_key] = {}
-            
-            for county, county_id in COUNTY2ID.items():
-                current_df = amr_df[(amr_df["county"] == county) & (amr_df["order_month"] == month) & (amr_df["order_year"] == year)]
-                #current_df = current_df.to_dict("records")
+            # First columm_drug is for the resistence scores. Last is a log counter for the number of tests
+            my_data = np.zeros((len(COUNTY2ID), len(COLUMN_DRUGS) + 1), dtype=np.float32)
+            for state_no in range(len(COUNTY2ID)):
+                county_data = amr_df[(amr_df["order_year"] == year) & (amr_df["order_month"] == month) & (amr_df["county"] == ID2COUNTY[state_no])]
                 
-                cur_ids = current_df["Unnamed: 0"].to_list()
-                cur_resistencies = resistency_scores[cur_ids]
-                resistency = np.sum(cur_resistencies) if len(cur_resistencies) > 0 else 0.0
+                # Get the indicies from the amr dataset that match the year, month, and county of interest
+                data_num_vals = np.array(county_data["spat_id"])
                 
-                res_results[month_year_key][county_id] = resistency
-                all_resistencies.append(resistency)
-                
-                # Disease count
-                disease_count = len(current_df)
-                disease_count_results[month_year_key][county_id] = disease_count / disease_count_monthly_average[county]
-                
-            current_df = amr_df[(amr_df["order_month"] == month) & (amr_df["order_year"] == year)]
-            cur_ids = current_df["Unnamed: 0"].to_list()
-            cur_resistencies = resistency_scores[cur_ids]
-            resistency = np.sum(cur_resistencies)
-            
-            res_results[month_year_key][len(COUNTY2ID)] = resistency
-            state_resistencies.append(resistency)
-            
-            # Disease count
-            disease_count = len(current_df)
-            disease_count_results[month_year_key][len(COUNTY2ID)] = disease_count / (disease_count_monthly_average[county] * 12)
-            
-            #print(f"{month}/{year}: {resistency}")
-                    
-        mean_resistency = np.mean(all_resistencies)
-        std_resistency = np.std(all_resistencies)
-        
-        state_mean_resistency = np.mean(state_resistencies)
-        state_std_resistency = np.std(state_resistencies)
-        
-        for ym_key in res_results.keys():
-            for county_key in res_results[ym_key].keys():
-                if county_key == len(COUNTY2ID): # Total_county
-                    res_results[ym_key][county_key] = (res_results[ym_key][county_key] - state_mean_resistency) / state_std_resistency
+                if len(data_num_vals) == 0:
+                    my_data[state_no] = np.zeros(len(COLUMN_DRUGS) + 1) - 1.0
                 else:
-                    res_results[ym_key][county_key] = (res_results[ym_key][county_key] - mean_resistency) / std_resistency 
+                    gt_scores_yms = gt_scores[data_num_vals]
                     
-            res_results_np = np.array([res_results[ym_key][county_key] for county_key in sorted(res_results[ym_key].keys())])
-            disease_count_results_np = np.array([disease_count_results[ym_key][county_key] for county_key in sorted(disease_count_results[ym_key].keys())])
-            combined = np.stack([res_results_np, disease_count_results_np], axis=1)
-            final_results[ym_key] = combined
-                
+                    amr_scores_yms = np.zeros(len(COLUMN_DRUGS) + 1)
+                    
+                    for col in range(gt_scores_yms.shape[1]):
+                        # For each drug remove null entries
+                        col_vals = gt_scores_yms[:, col][gt_scores_yms[:, col] != -1]
+                        
+                        # If there are no occurences of a test on the specific drug
+                        # set the value to -1
+                        if len(col_vals) == 0:
+                            amr_scores_yms[col] = -1
+                        else: # else, get the average result
+                            amr_scores_yms[col] = np.mean(col_vals)
+                            
+                    amr_scores_yms[-1] = np.log(len(data_num_vals))
+                        
+                    my_data[state_no] = amr_scores_yms
+            
+            final_results[f"{month}_{year}"] = my_data
+             
         return final_results
     
     def _get_county_dist_data(self):
@@ -434,7 +406,7 @@ class ABRDataModule(LightningDataModule):
                 
         return county_distances
             
-    def _get_player_org_data(self, amr_df : pd.DataFrame):
+    def _get_temporal_data(self, amr_df : pd.DataFrame):
         amr_rows = amr_df.to_dict("records")
         df = amr_df.copy()
         
@@ -444,7 +416,7 @@ class ABRDataModule(LightningDataModule):
             player_id = row["id"]
             county_id = COUNTY2ID[row["county"]]
             spatial_data_key = f"{row['order_month']}_{row['order_year']}"
-            row_number = row["Unnamed: 0"]
+            row_number = row["data_number"]
             
             # Converting the DataFrame columns and the current year and month to integers for comparison
             df['order_year'] = df['order_year'].astype(int)
@@ -455,21 +427,21 @@ class ABRDataModule(LightningDataModule):
             # Getting all past visits from each row
             past_tests_df = df[((df['order_year'] < curr_year) | ((df['order_year'] == curr_year) & (df['order_month'] < curr_month))) &
                             (df["id"] == player_id) &
-                            (df["Unnamed: 0"] != row_number)]
+                            (df["data_number"] != row_number)]
             
             # Getting the current visits from each row
             curr_tests_df = df[(df["id"] == player_id) &
-                            (df["Unnamed: 0"] != row_number) &
+                            (df["data_number"] != row_number) &
                             (df["order_year"] == curr_year) &
                             (df["order_month"] == curr_month)]
             
             if len(past_tests_df) != 0:
-                past_visits = past_tests_df["Unnamed: 0"].to_list()
+                past_visits = past_tests_df["data_number"].to_list()
             else:
                 past_visits = []
                 
             if len(curr_tests_df) != 0:
-                curr_visits = curr_tests_df["Unnamed: 0"].to_list()
+                curr_visits = curr_tests_df["data_number"].to_list()
             else:
                 curr_visits = []
                 
@@ -545,10 +517,10 @@ class ABRDataModule(LightningDataModule):
             
             #print(f"{drug_name}: {count_R + count_S + count_I}")
             
-        for (drug, tier) in list(DRUG_TIERS.items()):
-            if drug in list(abr_base_score.keys()):
+        #for (drug, tier) in list(DRUG_TIERS.items()):
+        #    if drug in list(abr_base_score.keys()):
                 #print(f"{drug}: {abr_base_score[drug]}: {tier}")  
-                pass
+        #        pass
         
         return abr_base_score
 

@@ -30,6 +30,7 @@ class Config():
     DRUG_IDS_FILE = "data/full_data_NY/drug_key.csv"
     ORG_IDS_FILE = "data/full_data_NY/org_standard_key.csv"
     SOURCE_IDS_FILE = "data/full_data_NY/source_key.csv"
+    ASSAY_IDS_FILE = "data/full_data_NY/assay_key.csv"
 
     # Train / Val / Test split ratios
     DATA_SPLIT = [0.8, 0.1, 0.1]

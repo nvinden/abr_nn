@@ -189,9 +189,9 @@ TAIL,SSTI,Unspecified,Tail,External
 BITE,SSTI,Wound,Bite,External
 BURN,SSTI,Wound,Burn,External
 WOUND,SSTI,Wound,Wound,External
-SOURCE_NOT_INDICATED,Unknown,Unknown,Unknown,Unspecified
-UNKNOWN,Unknown,Unknown,Unknown,Unspecified
-<NA>,Unknown,Unkown,Unkown,Unspecified
+SOURCE_NOT_INDICATED,UNKNOWN,Unknown,Unknown,Unspecified
+UNKNOWN,UNKNOWN,Unknown,Unknown,Unspecified
+<NA>,UNKNOWN,Unkown,Unkown,Unspecified
 BLADDER_WALL,Urinary,System,Bladder,Internal
 TISSUE_BLADDER WALL,Urinary,System,Bladder,Internal
 KIDNEY,Urinary,System,Kidney,Internal
@@ -202,6 +202,7 @@ URETER,Urinary,System,Tract,Internal
 URETHRA,Urinary,System,Tract,Internal
 CATHERIZED,Urinary,Urine,Extracted,Internal
 CATHETER,Urinary,Urine,Extracted,Internal
+CATHETERIZED,Urinary,Urine,Extracted,Internal
 CYSTOCENTESIS,Urinary,Urine,Extracted,Internal
 URINE_CATHETER,Urinary,Urine,Extracted,Internal
 URINE_CYSTO,Urinary,Urine,Extracted,Internal

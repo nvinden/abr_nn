@@ -15,7 +15,7 @@ def main():
 
     wandb_logger = WandbLogger(
         name = run_name,
-        project = 'abr',
+        project = 'amr_full',
         config = Config.to_dict(),
     )
     
@@ -38,7 +38,7 @@ def main():
         max_epochs=config.EPOCHS, 
         logger=wandb_logger,
         callbacks=[checkpoint_callback],
-        #limit_train_batches=0.05 # TEMP
+        limit_train_batches=0.05 # TEMP
     )
 
     # Train the model

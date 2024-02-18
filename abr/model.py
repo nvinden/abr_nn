@@ -8,6 +8,8 @@ import numpy as np
 from scipy.stats import norm
 from sklearn.metrics import confusion_matrix
 import wandb
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.preprocessing import label_binarize
 
 import matplotlib.pyplot as plt
 from io import BytesIO
@@ -66,7 +68,7 @@ class MainModel(nn.Module):
         # Skip connection 2
         self.skip2 = nn.Linear(1024, 1024)
 
-        self.final_linear = nn.Linear(512, num_drugs + 1)
+        self.final_linear = nn.Linear(512, num_drugs)
 
     def forward(self, x):
         x = F.relu(self.init_linear(x))
@@ -87,9 +89,9 @@ class MainModel(nn.Module):
 
 class ABRModel(pl.LightningModule):
     # Sizes from the data creation
-    MAIN_FEATURE_LENGTH = 186
-    SPAT_FEATURE_LENGTH = 3
-    TEMP_FEATURE_LENGTH = 188
+    MAIN_FEATURE_LENGTH = 923
+    SPAT_FEATURE_LENGTH = 58
+    TEMP_FEATURE_LENGTH = 981
     TEMP_SEQLEN = 100
     
     def __init__(self, config : Config):
@@ -99,11 +101,11 @@ class ABRModel(pl.LightningModule):
         self.main_net, self.temp_net, self.spat_net = self._build_networks()
         
         # Loss logging for end of epoch
-        self.all_gt_classifications = defaultdict(list)
-        self.all_pred_classifications = defaultdict(list)
+        self.all_gt_class_val = list()
+        self.all_pred_class_val = list()
         
-        self.all_gt_classifications_test = defaultdict(list)
-        self.all_pred_classifications_test = defaultdict(list)
+        self.all_gt_class_test = list()
+        self.all_pred_class_test = list()
 
         self.epoch_number = 0
 
@@ -156,7 +158,7 @@ class ABRModel(pl.LightningModule):
     
     def _build_spat_net(self):
         out_net = nn.Sequential(
-            nn.Linear(self.SPAT_FEATURE_LENGTH * (len(COUNTY2ID) + 1), 128),
+            nn.Linear(self.SPAT_FEATURE_LENGTH * (len(COUNTY2ID)), 128),
             nn.ReLU(),
             nn.BatchNorm1d(128),
             nn.Dropout(self.config.DROPOUT_RATE),
@@ -207,43 +209,25 @@ class ABRModel(pl.LightningModule):
         
         x = torch.cat([main_x, temp_feat, spat_feat], dim=1)
         x = self.main_net(x)
+        x = torch.sigmoid(x)
         
-        total_abr_number = torch.tanh(x[:, 0])
-        per_ab_class = torch.sigmoid(x[:, 1:])
-        
-        return total_abr_number, per_ab_class
+        return x
 
     def training_step(self, batch, batch_idx):
         # Training step logic
         gt = batch['gt']
         
-        gt_abr = gt[:, 0]
-        gt_per = gt[:, 1:]
-        
         main_x = batch['main']
         temp_x = batch['temp']
         spat_x = batch['spat']
         
-        pred_abr, pred_per = self(main_x, temp_x, spat_x)
+        pred = self(main_x, temp_x, spat_x)
         
-        abr_loss = nn.functional.mse_loss(pred_abr, gt_abr)
+        abr_loss = self.__get_loss(pred, gt)
         
-        # Ignore the tests that were never conducted
-        mask = gt_per != -1
-        filtered_pred_per = pred_per[mask]
-        filtered_gt_per = gt_per[mask]
-        if len(filtered_pred_per) == 0:
-            per_loss = torch.tensor(0.0)
-        else:
-            per_loss = nn.functional.mse_loss(filtered_pred_per, filtered_gt_per)
+        self.log("train_loss", abr_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         
-        total_loss = abr_loss + per_loss
-        
-        self.log("Train Total Loss", total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("Train ABR Loss", abr_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("Train Per Loss", per_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        
-        return total_loss
+        return abr_loss
 
     def plot_confusion_matrix_as_image(self, cm, epoch, class_names):
         fig, ax = plt.subplots()
@@ -287,62 +271,36 @@ class ABRModel(pl.LightningModule):
         # Validation step logic
         gt = batch['gt']
         
-        gt_abr = gt[:, 0]
-        gt_per = gt[:, 1:]
-        
         main_x = batch['main']
         temp_x = batch['temp']
         spat_x = batch['spat']
         
-        pred_abr, pred_per = self(main_x, temp_x, spat_x)
-
-        # Loggin losses
-        abr_loss = nn.functional.mse_loss(pred_abr, gt_abr)
+        pred = self(main_x, temp_x, spat_x)
         
-        # Ignore the tests that were never conducted
-        mask = gt_per != -1
-        filtered_pred_per = pred_per[mask]
-        filtered_gt_per = gt_per[mask]
+        abr_loss = self.__get_loss(pred, gt)
         
-        if len(filtered_pred_per) == 0:
-            per_loss = torch.tensor(0.0)
-        else:
-            per_loss = nn.functional.mse_loss(filtered_pred_per, filtered_gt_per)
-        
-        total_loss = abr_loss + per_loss
-        
-        self.log("Val Total Loss", total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("Val ABR Loss", abr_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("Val Per Loss", per_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("val_loss", abr_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         
         # Loggin Val Accuracy
-        pred_abr = pred_abr.detach().cpu().numpy()
-        pred_per = pred_per.detach().cpu().numpy()
-        gt_abr = gt_abr.detach().cpu().numpy()
-        gt_per = gt_per.detach().cpu().numpy()
-        
-        abr_accuracy, (abr_pred_buckets, abr_gt_buckets) = self._get_abr_accuracy(pred = pred_abr, gt = gt_abr)
-        per_accuracy, (per_pred_buckets, per_gt_buckets) = self._get_per_accuracy(pred = pred_per, gt = gt_per)
+        (accuracy, precision, recall, f1), (gt_class, pred_class) = self.__calculate_accuracy_metrics(pred = pred, gt = gt)
         
         # Log the metrics
-        self.log('val_abr_accuracy', abr_accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('val_per_accuracy', per_accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        
-        self.all_gt_classifications['abr'].append(abr_gt_buckets.astype(int))
-        self.all_pred_classifications['abr'].append(abr_pred_buckets.astype(int))
-        
+        self.log('val_accuracy', accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('val_precision', precision, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('val_recall', recall, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('val_f1', f1, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.log('naive_model_accuracy', 0.333333333333333, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        mask = per_gt_buckets != -1
-        filtered_pred_per_bucket = per_pred_buckets[mask]
-        filtered_gt_per_bucket = per_gt_buckets[mask]
-
-        self.all_gt_classifications["per"].append(filtered_gt_per_bucket)
-        self.all_pred_classifications["per"].append(filtered_pred_per_bucket)
+        # For each row add the predicted drug values, and the gt drug values, along with each drugs tp, fp, fn, tn
+        self.all_gt_class_val.extend(gt_class.tolist())
+        self.all_pred_class_val.extend(pred_class.tolist())
             
     def on_validation_epoch_end(self):
-        all_gt = np.concatenate(self.all_gt_classifications["abr"]) - 1
-        all_preds = np.concatenate(self.all_pred_classifications["abr"]) - 1
+        all_gt = self.all_gt_class_val
+        all_preds = self.all_pred_class_val
+        
+        self.all_gt_class_val = list()
+        self.all_pred_class_val = list()
         
         # print all the unique values
         #print("UNIQUE VALUES FOR GT AND PRED")
@@ -359,25 +317,6 @@ class ABRModel(pl.LightningModule):
         ])
         
         wandb.log({"confusion_matrix_img": cm_image})
-
-        per_gt = np.concatenate(self.all_gt_classifications["per"])
-        per_preds = np.concatenate(self.all_pred_classifications["per"])
-        
-        # Compute the confusion matrix
-        cm = confusion_matrix(per_gt, per_preds)
-        
-        # Convert the confusion matrix to an image
-        cm_image = self.plot_confusion_matrix_as_image(cm, self.epoch_number, [
-                                                        "1) Susceptible",
-                                                        "2) Intermediate",
-                                                        "3) Resistant",
-        ])
-        
-        wandb.log({"per_confusion_matrix_img": cm_image})
-        
-        # Reset for the next epoch
-        self.all_gt_classifications = defaultdict(list)
-        self.all_pred_classifications = defaultdict(list)
 
         self.epoch_number += 1
 
@@ -415,77 +354,118 @@ class ABRModel(pl.LightningModule):
         per_accuracy = np.mean(filtered_pred_per_bucket == filtered_gt_per_bucket)
         
         return per_accuracy, (pred_bunches, gt_bunches)
+    
+    def __get_loss(self, pred, gt):
+        # Create a mask for values where gt is not equal to -1.
+        # drugs with -1 values were not tested in reality and should be ignored
+        mask = gt != -1
 
-    def test_step(self, batch, batch_idx):
-        # Test step logic
-        # Validation step logic
-        gt = batch['gt']
+        # Apply the mask to filter out ignored gt and corresponding predictions
+        gt_filtered = torch.masked_select(gt, mask)
+        pred_filtered = torch.masked_select(pred, mask)
+
+        # Logging losses
+        abr_loss = nn.functional.mse_loss(pred_filtered, gt_filtered)
         
-        gt_abr = gt[:, 0]
-        gt_per = gt[:, 1:]
+        return abr_loss
+    
+    # Returns metrics:
+    # - Accuracy
+    # - Precision
+    # - Recall
+    # - F1
+    # GT, and pred can fit into 3 buckets, S = 0.0, I = 0.5, R = 1.0
+    def __calculate_accuracy_metrics(self, pred, gt):
+        # Create a mask for values where gt is not equal to -1.
+        # drugs with -1 values were not tested in reality and should be ignored
+        mask = gt != -1
+
+        # Apply the mask to filter out ignored gt and corresponding predictions
+        gt_filtered = torch.masked_select(gt, mask)
+        pred_filtered = torch.masked_select(pred, mask)
+        
+        # Turn the matricies into their corresponding categories: S, I, R
+        convert_func = np.vectorize(lambda x: 'S' if x < 0.3333 else ('I' if x < 0.66666 else 'R'))
+        gt_cat = convert_func(gt_filtered)
+        pred_cat = convert_func(pred_filtered)
+        
+        # 1) Accuracy, Precision, Recall, f1
+        # TODO: change macro to use global data
+        accuracy = accuracy_score(gt_cat, pred_cat)
+        precision = precision_score(gt_cat, pred_cat, average='macro')
+        recall = recall_score(gt_cat, pred_cat, average='macro')
+        f1 = f1_score(gt_cat, pred_cat, average='macro')
+        
+        # 2) AUC scores with the probabilities:
+        #pred_np = np.array(pred_filtered)
+        #auc = roc_auc_score(gt_cat, pred_np, average='macro', multi_class='ovr')
+        
+        return (accuracy, precision, recall, f1), (gt_cat, pred_cat)
+    
+    # Returns a list of dicts. One list for each drug.
+    # [
+    #    "druga_pred": S, "druga_gt": S, "druga_cat": TP, "drugb_pred:"....  
+    # ]
+    # If a drug is not tested, pred, gt and cat are all set as "N/A"
+    # TODO: implement this
+    def __get_result_dicts(self, pred: torch.Tensor, gt: torch.Tensor):
+        out_list = []
+        
+        for i in range(pred.shape[1]):
+            curr_pred = pred[i]
+            curr_gt = gt[i]
+            
+            curr_dict = []
+            
+            # For each drug
+            for j in range(len(curr_pred)):
+                current_drug = COLUMN_DRUGS[j]
+                
+                # If result is a null
+                if curr_gt[j] < 0.0:
+                    pass
+        
+    def test_step(self, batch, batch_idx):
+        # test step logic
+        gt = batch['gt']
         
         main_x = batch['main']
         temp_x = batch['temp']
         spat_x = batch['spat']
         
-        pred_abr, pred_per = self(main_x, temp_x, spat_x)
-
-        # Loggin losses
-        abr_loss = nn.functional.mse_loss(pred_abr, gt_abr)
-        per_loss = nn.functional.mse_loss(pred_per, gt_per)
+        pred = self(main_x, temp_x, spat_x)
         
-        total_loss = abr_loss + per_loss
+        abr_loss = self.__get_loss(pred, gt)
         
-        self.log("Test Total Loss", total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("Test ABR Loss", abr_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("Test Per Loss", per_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("test_loss", abr_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         
         # Loggin Val Accuracy
-        pred_abr = pred_abr.detach().cpu().numpy()
-        pred_per = pred_per.detach().cpu().numpy()
-        gt_abr = gt_abr.detach().cpu().numpy()
-        gt_per = gt_per.detach().cpu().numpy()
-        
-        abr_accuracy, (abr_pred_buckets, abr_gt_buckets) = self._get_abr_accuracy(pred = pred_abr, gt = gt_abr)
-        per_accuracy, (per_pred_buckets, per_gt_buckets) = self._get_per_accuracy(pred = pred_per, gt = gt_per)
+        (accuracy, precision, recall, f1), (gt_class, pred_class) = self.__calculate_accuracy_metrics(pred = pred, gt = gt)
         
         # Log the metrics
-        self.log('test_abr_accuracy', abr_accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('test_per_accuracy', per_accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_accuracy', accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_precision', precision, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_recall', recall, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log('test_f1', f1, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         
-        self.all_gt_classifications_test['abr'].append(abr_gt_buckets.astype(int))
-        self.all_pred_classifications_test['abr'].append(abr_pred_buckets.astype(int))
-        
-        self.log('naive_model_accuracy', 0.333333333333333, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-         
-        mask = per_gt_buckets != -1
-        filtered_pred_per_bucket = per_pred_buckets[mask]
-        filtered_gt_per_bucket = per_gt_buckets[mask]
-
-        self.all_gt_classifications_test["per"].append(filtered_gt_per_bucket)
-        self.all_pred_classifications_test["per"].append(filtered_pred_per_bucket)
+        # For each row add the predicted drug values, and the gt drug values, along with each drugs tp, fp, fn, tn
+        self.all_gt_class_test.extend(gt_class.tolist())
+        self.all_pred_class_test.extend(pred_class.tolist())
         
     def on_test_epoch_end(self):
-        all_gt = np.concatenate(self.all_gt_classifications_test["abr"]) - 1
-        all_preds = np.concatenate(self.all_pred_classifications_test["abr"]) - 1
+        all_gt = self.all_gt_class_test
+        all_preds = self.all_pred_class_val
+        
+        self.all_gt_class_test = list()
+        self.all_pred_class_test = list()
+        
+        # print all the unique values
+        #print("UNIQUE VALUES FOR GT AND PRED")
+        #print(np.unique(all_gt), all_gt.shape)
+        #print(np.unique(all_preds), all_preds.shape)
 
         # Compute the confusion matrix
         cm = confusion_matrix(all_gt, all_preds)
-        # Convert the confusion matrix to an image
-        cm_image = self.plot_confusion_matrix_as_image(cm, self.config.EPOCHS, [
-                                                        "1) Susceptible",
-                                                        "2) Intermediate",
-                                                        "3) Resistant",
-        ])
-        
-        wandb.log({"test_confusion_matrix_img": cm_image})
-        
-        per_gt = np.concatenate(self.all_gt_classifications_test["per"])
-        per_preds = np.concatenate(self.all_pred_classifications_test["per"])
-        
-        # Compute the confusion matrix
-        cm = confusion_matrix(per_gt, per_preds)
-        
         # Convert the confusion matrix to an image
         cm_image = self.plot_confusion_matrix_as_image(cm, self.epoch_number, [
                                                         "1) Susceptible",
@@ -493,11 +473,9 @@ class ABRModel(pl.LightningModule):
                                                         "3) Resistant",
         ])
         
-        wandb.log({"test_per_confusion_matrix_img": cm_image})
+        wandb.log({"confusion_matrix_img": cm_image})
 
-        # Reset for the next epoch
-        self.all_gt_classifications = defaultdict(list)
-        self.all_pred_classifications = defaultdict(list)
+        self.epoch_number += 1
 
     def configure_optimizers(self):
         # Configure optimizers and LR schedulers
